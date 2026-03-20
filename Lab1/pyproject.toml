@@ -1,0 +1,9 @@
+[project]
+name = "aois1"
+version = "0.1.0"
+description = "Laboratory work: manual binary codes and arithmetic algorithms"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+aois1 = "src.main:main"

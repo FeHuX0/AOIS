@@ -1,0 +1,194 @@
+    1: import io
+    1: import unittest
+    1: from contextlib import redirect_stdout
+    1: from unittest.mock import patch
+       
+    1: import cli
+    1: from src.hash_table import HashTable
+       
+       
+    2: class CLITestCase(unittest.TestCase):
+    1:     def setUp(self) -> None:
+   21:         self.table = HashTable(size=11)
+       
+    1:     def _run_command(self, command: str, inputs: list[str] | None = None) -> tuple[bool, str]:
+   14:         output = io.StringIO()
+   14:         input_values = inputs or []
+       
+   28:         with patch("builtins.input", side_effect=input_values), redirect_stdout(output):
+   14:             should_continue = cli.handle_command(self.table, command)
+       
+   14:         return should_continue, output.getvalue()
+       
+    1:     def test_print_menu_outputs_all_items(self) -> None:
+    1:         output = io.StringIO()
+       
+    2:         with redirect_stdout(output):
+    1:             cli.print_menu()
+       
+    1:         rendered = output.getvalue()
+    1:         self.assertIn("1. Добавить элемент", rendered)
+    1:         self.assertIn("5. Показать таблицу", rendered)
+    1:         self.assertIn("0. Выход", rendered)
+       
+    1:     def test_format_public_table_hides_internal_flags(self) -> None:
+    1:         self.table.insert("АБ", "значение")
+    1:         rendered = cli.format_public_table(self.table)
+       
+    1:         self.assertIn("Индекс | Ключ | Значение", rendered)
+    1:         self.assertIn("1 | АБ | значение", rendered)
+    1:         self.assertIn("0 | - | -", rendered)
+    1:         self.assertNotIn("C=", rendered)
+    1:         self.assertNotIn("U=", rendered)
+       
+    1:     def test_handle_command_insert_adds_item(self) -> None:
+    1:         should_continue, rendered = self._run_command("1", ["АБ", "лампа"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertEqual(self.table.search("АБ"), "лампа")
+    1:         self.assertIn("Элемент успешно добавлен", rendered)
+       
+    1:     def test_handle_command_insert_handles_duplicate_key(self) -> None:
+    1:         self.table.insert("АБ", "лампа")
+       
+    1:         should_continue, rendered = self._run_command("1", ["АБ", "дубликат"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Ошибка: такой ключ уже существует.", rendered)
+       
+    1:     def test_handle_command_insert_handles_full_table(self) -> None:
+    1:         small_table = HashTable(size=1)
+    1:         small_table.insert("АА", "первый")
+    1:         output = io.StringIO()
+       
+    2:         with patch("builtins.input", side_effect=["АБ", "второй"]), redirect_stdout(output):
+    1:             should_continue = cli.handle_command(small_table, "1")
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Ошибка: таблица заполнена.", output.getvalue())
+       
+    1:     def test_handle_command_insert_handles_validation_error(self) -> None:
+    1:         should_continue, rendered = self._run_command("1", ["AБ", "лампа"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Ошибка: Key must contain only Russian letters.", rendered)
+       
+    1:     def test_handle_command_search_prints_value(self) -> None:
+    1:         self.table.insert("АБ", "лампа")
+       
+    1:         should_continue, rendered = self._run_command("2", ["АБ"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Найдено значение: лампа", rendered)
+       
+    1:     def test_handle_command_search_prints_not_found_message(self) -> None:
+    1:         should_continue, rendered = self._run_command("2", ["АБ"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Элемент не найден.", rendered)
+       
+    1:     def test_handle_command_search_handles_validation_error(self) -> None:
+    1:         should_continue, rendered = self._run_command("2", ["AБ"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Ошибка: Key must contain only Russian letters.", rendered)
+       
+    1:     def test_handle_command_update_changes_value(self) -> None:
+    1:         self.table.insert("АБ", "старое")
+       
+    1:         should_continue, rendered = self._run_command("3", ["АБ", "новое"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertEqual(self.table.search("АБ"), "новое")
+    1:         self.assertIn("Элемент обновлен", rendered)
+       
+    1:     def test_handle_command_update_prints_missing_key_message(self) -> None:
+    1:         should_continue, rendered = self._run_command("3", ["АБ", "новое"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Ошибка: ключ не найден.", rendered)
+       
+    1:     def test_handle_command_update_handles_validation_error(self) -> None:
+    1:         should_continue, rendered = self._run_command("3", ["AБ", "новое"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Ошибка: Key must contain only Russian letters.", rendered)
+       
+    1:     def test_handle_command_delete_removes_item(self) -> None:
+    1:         self.table.insert("АБ", "лампа")
+       
+    1:         should_continue, rendered = self._run_command("4", ["АБ"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Элемент удален", rendered)
+       
+    1:     def test_handle_command_delete_prints_missing_key_message(self) -> None:
+    1:         should_continue, rendered = self._run_command("4", ["АБ"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Ошибка: ключ не найден.", rendered)
+       
+    1:     def test_handle_command_delete_handles_validation_error(self) -> None:
+    1:         should_continue, rendered = self._run_command("4", ["AБ"])
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Ошибка: Key must contain only Russian letters.", rendered)
+       
+    1:     def test_handle_command_show_prints_public_table(self) -> None:
+    1:         self.table.insert("АБ", "лампа")
+    1:         output = io.StringIO()
+       
+    2:         with redirect_stdout(output):
+    1:             should_continue = cli.handle_command(self.table, "5")
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Индекс | Ключ | Значение", output.getvalue())
+    1:         self.assertIn("1 | АБ | лампа", output.getvalue())
+       
+    1:     def test_handle_command_load_factor_prints_ratio(self) -> None:
+    1:         self.table.insert("АБ", "лампа")
+    1:         output = io.StringIO()
+       
+    2:         with redirect_stdout(output):
+    1:             should_continue = cli.handle_command(self.table, "6")
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Коэффициент заполнения: 0.09", output.getvalue())
+       
+    1:     def test_handle_command_strips_whitespace_from_choice(self) -> None:
+    1:         should_continue, rendered = self._run_command(" 0 ")
+       
+    1:         self.assertFalse(should_continue)
+    1:         self.assertIn("Завершение работы.", rendered)
+       
+    1:     def test_handle_command_handles_unknown_choice(self) -> None:
+    1:         should_continue, rendered = self._run_command("abc")
+       
+    1:         self.assertTrue(should_continue)
+    1:         self.assertIn("Некорректная команда", rendered)
+       
+    1:     def test_handle_command_exit_stops_loop(self) -> None:
+    1:         output = io.StringIO()
+       
+    2:         with redirect_stdout(output):
+    1:             should_continue = cli.handle_command(self.table, "0")
+       
+    1:         self.assertFalse(should_continue)
+    1:         self.assertIn("Завершение работы.", output.getvalue())
+       
+    1:     def test_run_cli_processes_commands_until_exit(self) -> None:
+    1:         output = io.StringIO()
+    1:         inputs = ["1", "АБ", "лампа", "5", "0"]
+       
+    2:         with patch("builtins.input", side_effect=inputs), redirect_stdout(output):
+    1:             cli.run_cli(self.table)
+       
+    1:         rendered = output.getvalue()
+    1:         self.assertIn("Консольный интерфейс для работы с хеш-таблицей.", rendered)
+    1:         self.assertIn("Элемент успешно добавлен", rendered)
+    1:         self.assertIn("1 | АБ | лампа", rendered)
+    1:         self.assertIn("Завершение работы.", rendered)
+       
+       
+    1: if __name__ == "__main__":
+>>>>>>     unittest.main()

@@ -1,0 +1,59 @@
+    1: from dataclasses import dataclass
+    1: from typing import Any
+       
+    1: from .hash_status import HashStatus
+       
+       
+    3: @dataclass(slots=True)
+    2: class HashEntry:
+    1:     id_word: str | None = None
+    1:     c: int = 0
+    1:     u: int = 0
+    1:     t: int = 0
+    1:     l: int = 0
+    1:     d: int = 0
+    1:     p0: int | None = None
+    1:     pi: Any = None
+       
+    2:     @property
+    2:     def key(self) -> str | None:
+   80:         return self.id_word
+       
+    2:     @property
+    2:     def value(self) -> Any:
+   24:         return self.pi
+       
+    2:     @value.setter
+    2:     def value(self, new_value: Any) -> None:
+    3:         self.pi = new_value
+       
+    2:     @property
+    2:     def status(self) -> HashStatus:
+  261:         if self.d == 1:
+   10:             return HashStatus.DELETED
+  251:         if self.u == 1:
+  109:             return HashStatus.OCCUPIED
+  142:         return HashStatus.EMPTY
+       
+    1:     def occupy(self, key: str, value: Any, collision: bool) -> None:
+   54:         self.id_word = key
+   54:         self.c = 1 if collision else 0
+   54:         self.u = 1
+   54:         self.t = 1
+   54:         self.l = 0
+   54:         self.d = 0
+   54:         self.p0 = None
+   54:         self.pi = value
+       
+    1:     def mark_deleted(self) -> None:
+    7:         self.u = 0
+    7:         self.t = 0
+    7:         self.d = 1
+    7:         self.l = 0
+    7:         self.p0 = None
+       
+    1:     def __str__(self) -> str:
+    3:         return (
+    6:             f"ID={self.id_word}, C={self.c}, U={self.u}, T={self.t}, "
+    3:             f"L={self.l}, D={self.d}, P0={self.p0}, Pi={self.pi}"
+               )

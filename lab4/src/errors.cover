@@ -1,0 +1,22 @@
+    2: class HashTableError(Exception):
+    1:     """Base exception for hash table errors."""
+       
+       
+    2: class InvalidTableSizeError(HashTableError):
+    1:     """Raised when the table size is invalid."""
+       
+       
+    2: class InvalidKeyError(HashTableError):
+    1:     """Raised when the key does not satisfy validation rules."""
+       
+       
+    2: class DuplicateKeyError(HashTableError):
+    1:     """Raised when an insertion with an existing key is attempted."""
+       
+       
+    2: class KeyNotFoundError(HashTableError):
+    1:     """Raised when a key cannot be found in the table."""
+       
+       
+    2: class TableFullError(HashTableError):
+    1:     """Raised when there is no free position for insertion."""

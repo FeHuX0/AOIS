@@ -1,0 +1,168 @@
+    1: import unittest
+       
+    1: from src.errors import DuplicateKeyError, KeyNotFoundError, TableFullError
+    1: from src.hash_status import HashStatus
+    1: from src.hash_table import HashTable
+       
+       
+    2: class HashTableTestCase(unittest.TestCase):
+    1:     def setUp(self) -> None:
+   15:         self.table = HashTable(size=11)
+       
+    1:     def test_properties_reflect_table_state(self) -> None:
+    1:         self.assertEqual(self.table.size, 11)
+    1:         self.assertEqual(self.table.count, 0)
+    1:         self.assertEqual(len(self.table), 0)
+       
+    1:     def test_insert_without_collisions(self) -> None:
+    1:         index_one = self.table.insert("АА", "значение 1")
+    1:         index_two = self.table.insert("АБ", "значение 2")
+    1:         first_entry = self.table.get_entry(index_one)
+    1:         second_entry = self.table.get_entry(index_two)
+       
+    1:         self.assertEqual(index_one, 0)
+    1:         self.assertEqual(index_two, 1)
+    1:         self.assertEqual(self.table.search("АА"), "значение 1")
+    1:         self.assertEqual(self.table.search("АБ"), "значение 2")
+    1:         self.assertEqual(first_entry.id_word, "АА")
+    1:         self.assertEqual(first_entry.c, 0)
+    1:         self.assertEqual(first_entry.u, 1)
+    1:         self.assertEqual(first_entry.t, 1)
+    1:         self.assertEqual(first_entry.l, 0)
+    1:         self.assertEqual(first_entry.d, 0)
+    1:         self.assertIsNone(first_entry.p0)
+    1:         self.assertEqual(first_entry.pi, "значение 1")
+    1:         self.assertEqual(second_entry.c, 0)
+       
+    1:     def test_insert_with_collisions_uses_quadratic_probing_first(self) -> None:
+    1:         first_index = self.table.insert("АБРИКОС", "фрукт")
+    1:         second_index = self.table.insert("АБАЖУР", "лампа")
+    1:         third_index = self.table.insert("АБОРДАЖ", "термин")
+    1:         second_entry = self.table.get_entry(second_index)
+    1:         third_entry = self.table.get_entry(third_index)
+       
+    1:         self.assertEqual(first_index, 1)
+    1:         self.assertEqual(second_index, 2)
+    1:         self.assertEqual(third_index, 5)
+    1:         self.assertEqual(self.table.search("АБОРДАЖ"), "термин")
+    1:         self.assertEqual(second_entry.c, 1)
+    1:         self.assertEqual(third_entry.c, 1)
+    1:         self.assertEqual(second_entry.u, 1)
+    1:         self.assertEqual(third_entry.t, 1)
+       
+    1:     def test_insert_uses_fallback_scan_when_quadratic_sequence_repeats(self) -> None:
+    1:         colliding_keys = [
+                   "АБРИКОС",
+                   "АБАЖУР",
+                   "АБОРДАЖ",
+                   "АБСУРД",
+                   "АБЗАЦ",
+                   "АББАТ",
+                   "АББРЕВИАТУРА",
+               ]
+       
+    8:         inserted_indexes = [self.table.insert(key, number) for number, key in enumerate(colliding_keys, start=1)]
+       
+    1:         self.assertEqual(inserted_indexes[:6], [1, 2, 5, 10, 6, 4])
+    1:         self.assertEqual(inserted_indexes[6], 3)
+    1:         self.assertEqual(self.table.search("АББРЕВИАТУРА"), 7)
+    1:         self.assertEqual(self.table.count, 7)
+       
+    1:     def test_search_existing_key_returns_value(self) -> None:
+    1:         self.table.insert("БАНАН", "желтый")
+    1:         self.assertEqual(self.table.search("БАНАН"), "желтый")
+       
+    1:     def test_search_missing_key_raises_error(self) -> None:
+    2:         with self.assertRaises(KeyNotFoundError):
+    1:             self.table.search("ВИШНЯ")
+       
+    1:     def test_update_existing_key_changes_value(self) -> None:
+    1:         self.table.insert("БАНАН", "желтый")
+    1:         updated_index = self.table.update("БАНАН", "спелый")
+       
+    1:         self.assertEqual(self.table.search("БАНАН"), "спелый")
+    1:         self.assertEqual(updated_index, 0)
+       
+    1:     def test_delete_existing_key_marks_slot_deleted(self) -> None:
+    1:         self.table.insert("АБРИКОС", "фрукт")
+    1:         removed_value = self.table.delete("АБРИКОС")
+    1:         deleted_entry = self.table.get_entry(1)
+       
+    1:         self.assertEqual(removed_value, "фрукт")
+    1:         self.assertEqual(self.table.count, 0)
+    1:         self.assertEqual(deleted_entry.status, HashStatus.DELETED)
+    1:         self.assertEqual(deleted_entry.id_word, "АБРИКОС")
+    1:         self.assertEqual(deleted_entry.pi, "фрукт")
+    1:         self.assertEqual(deleted_entry.u, 0)
+    1:         self.assertEqual(deleted_entry.d, 1)
+    1:         self.assertEqual(deleted_entry.t, 0)
+       
+    2:         with self.assertRaises(KeyNotFoundError):
+    1:             self.table.search("АБРИКОС")
+       
+    1:     def test_search_continues_after_deleted_slot(self) -> None:
+    1:         self.table.insert("АБРИКОС", "фрукт")
+    1:         self.table.insert("АБАЖУР", "лампа")
+    1:         self.table.insert("АБОРДАЖ", "термин")
+    1:         self.table.delete("АБАЖУР")
+       
+    1:         self.assertEqual(self.table.search("АБОРДАЖ"), "термин")
+       
+    1:     def test_insert_reuses_deleted_slot(self) -> None:
+    1:         self.table.insert("АБРИКОС", "фрукт")
+    1:         self.table.insert("АБАЖУР", "лампа")
+    1:         self.table.delete("АБРИКОС")
+       
+    1:         reused_index = self.table.insert("АБСУРД", "повторная вставка")
+    1:         reused_entry = self.table.get_entry(reused_index)
+       
+    1:         self.assertEqual(reused_index, 1)
+    1:         self.assertEqual(self.table.search("АБСУРД"), "повторная вставка")
+    1:         self.assertEqual(reused_entry.id_word, "АБСУРД")
+    1:         self.assertEqual(reused_entry.d, 0)
+    1:         self.assertEqual(reused_entry.u, 1)
+       
+    1:     def test_insert_detects_duplicate_key_after_normalization(self) -> None:
+    1:         self.table.insert("груша", "значение")
+       
+    2:         with self.assertRaises(DuplicateKeyError):
+    1:             self.table.insert(" ГРУША ", "дубликат")
+       
+    1:     def test_table_full_raises_error_only_when_table_has_no_free_slots(self) -> None:
+    1:         full_table = HashTable(size=3)
+    1:         full_table.insert("АА", 1)
+    1:         full_table.insert("АБ", 2)
+    1:         full_table.insert("АВ", 3)
+       
+    2:         with self.assertRaises(TableFullError):
+    1:             full_table.insert("АГ", 4)
+       
+    1:     def test_load_factor_and_length_are_calculated_correctly(self) -> None:
+    1:         self.table.insert("АА", 1)
+    1:         self.table.insert("АБ", 2)
+    1:         self.table.insert("АВ", 3)
+       
+    1:         self.assertEqual(len(self.table), 3)
+    1:         self.assertAlmostEqual(self.table.get_load_factor(), 3 / 11)
+       
+    1:     def test_display_returns_human_readable_table_state(self) -> None:
+    1:         self.table.insert("АА", "пусто")
+    1:         self.table.insert("АБ", "занято")
+    1:         self.table.delete("АА")
+       
+    1:         table_view = self.table.display()
+       
+    1:         self.assertIn("HashTable(size=11, count=1", table_view)
+    1:         self.assertIn("idx | ID | C | U | T | L | D | P0 | Pi", table_view)
+    1:         self.assertIn("0 | АА", table_view)
+    1:         self.assertIn("1 | АБ", table_view)
+    1:         self.assertIn("| 0 | 1 | 1 | 0 | 0 | None | занято", table_view)
+       
+    1:     def test_display_table_alias_and_string_conversion_return_same_text(self) -> None:
+    1:         self.table.insert("АА", "значение")
+    1:         self.assertEqual(self.table.display_table(), self.table.display())
+    1:         self.assertEqual(str(self.table), self.table.display())
+       
+       
+    1: if __name__ == "__main__":
+>>>>>>     unittest.main()

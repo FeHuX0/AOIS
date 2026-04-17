@@ -1,0 +1,147 @@
+    1: from __future__ import annotations
+       
+    1: from collections.abc import Iterator
+    1: from typing import Any
+       
+    1: from .errors import DuplicateKeyError, KeyNotFoundError, TableFullError
+    1: from .hash_entry import HashEntry
+    1: from .hash_status import HashStatus
+    1: from .hash_utils import calculate_hash, calculate_v, normalize_key, validate_table_size
+       
+       
+    2: class HashTable:
+    1:     def __init__(self, size: int, base: int = 0) -> None:
+   47:         validate_table_size(size)
+   45:         self._size = size
+   45:         self._base = base
+   45:         self._count = 0
+  522:         self._table = [HashEntry() for _ in range(size)]
+       
+    2:     @property
+    2:     def size(self) -> int:
+    6:         return self._size
+       
+    2:     @property
+    2:     def count(self) -> int:
+    3:         return self._count
+       
+    1:     def __len__(self) -> int:
+    2:         return self._count
+       
+    1:     def get_entry(self, index: int) -> HashEntry:
+   39:         return self._table[index]
+       
+    1:     def _initial_index(self, key: str) -> int:
+   84:         return calculate_hash(calculate_v(key), self._size, self._base)
+       
+    1:     def _probe_index(self, initial_index: int, attempt: int) -> int:
+  146:         return (initial_index + attempt * attempt) % self._size
+       
+    1:     def _probe_sequence(self, initial_index: int) -> Iterator[int]:
+   84:         yielded_indexes: set[int] = set()
+       
+  151:         for attempt in range(self._size):
+  146:             index = self._probe_index(initial_index, attempt)
+  146:             if index not in yielded_indexes:
+  130:                 yielded_indexes.add(index)
+  130:                 yield index
+       
+               # Quadratic probing can revisit the same cells and leave a part of the
+               # table unchecked. The linear fallback guarantees a full scan.
+   24:         for offset in range(self._size):
+   21:             index = (initial_index + offset) % self._size
+   21:             if index not in yielded_indexes:
+    8:                 yield index
+       
+    1:     def _find_existing_index(self, key: str) -> int:
+   30:         normalized_key = normalize_key(key)
+   27:         initial_index = self._initial_index(normalized_key)
+       
+   39:         for index in self._probe_sequence(initial_index):
+   39:             entry = self._table[index]
+       
+   39:             if entry.status is HashStatus.EMPTY:
+    7:                 break
+       
+   32:             if entry.status is HashStatus.OCCUPIED and entry.key == normalized_key:
+   20:                 return index
+       
+    7:         raise KeyNotFoundError(f"Key '{normalized_key}' was not found.")
+       
+    1:     def insert(self, key: str, value: Any) -> int:
+   61:         normalized_key = normalize_key(key)
+   57:         initial_index = self._initial_index(normalized_key)
+   57:         first_deleted_index: int | None = None
+       
+  102:         for index in self._probe_sequence(initial_index):
+   99:             entry = self._table[index]
+       
+   99:             if entry.status is HashStatus.OCCUPIED:
+   45:                 if entry.key == normalized_key:
+    2:                     raise DuplicateKeyError(f"Key '{normalized_key}' already exists.")
+   43:                 continue
+       
+   54:             if entry.status is HashStatus.DELETED:
+    2:                 if first_deleted_index is None:
+    2:                     first_deleted_index = index
+    2:                 continue
+       
+   52:             target_index = first_deleted_index if first_deleted_index is not None else index
+   52:             collision_happened = target_index != initial_index
+   52:             self._table[target_index].occupy(normalized_key, value, collision_happened)
+   52:             self._count += 1
+   52:             return target_index
+       
+    3:         if first_deleted_index is not None:
+    1:             collision_happened = first_deleted_index != initial_index
+    1:             self._table[first_deleted_index].occupy(normalized_key, value, collision_happened)
+    1:             self._count += 1
+    1:             return first_deleted_index
+       
+    2:         raise TableFullError("Hash table is full. Insert operation cannot be completed.")
+       
+    1:     def search(self, key: str) -> Any:
+   16:         index = self._find_existing_index(key)
+   12:         return self._table[index].value
+       
+    1:     def update(self, key: str, value: Any) -> int:
+    5:         index = self._find_existing_index(key)
+    2:         self._table[index].value = value
+    2:         return index
+       
+    1:     def delete(self, key: str) -> Any:
+    9:         index = self._find_existing_index(key)
+    6:         removed_value = self._table[index].value
+    6:         self._table[index].mark_deleted()
+    6:         self._count -= 1
+    6:         return removed_value
+       
+    1:     def get_load_factor(self) -> float:
+    7:         return self._count / self._size
+       
+    1:     def display(self) -> str:
+    5:         lines = [
+    5:             f"HashTable(size={self._size}, count={self._count}, load_factor={self.get_load_factor():.2f})"
+               ]
+    5:         lines.append("idx | ID | C | U | T | L | D | P0 | Pi")
+       
+   60:         for index, entry in enumerate(self._table):
+  110:             lines.append(
+  110:                 f"{index:>3} | {self._format_value(entry.id_word):<10} | "
+   55:                 f"{entry.c} | {entry.u} | {entry.t} | {entry.l} | {entry.d} | "
+   55:                 f"{self._format_value(entry.p0):<4} | {self._format_value(entry.pi)}"
+                   )
+       
+    5:         return "\n".join(lines)
+       
+    1:     def display_table(self) -> str:
+    1:         return self.display()
+       
+    2:     @staticmethod
+    2:     def _format_value(value: Any) -> str:
+  165:         if value is None:
+  153:             return "None"
+   12:         return str(value)
+       
+    1:     def __str__(self) -> str:
+    1:         return self.display()

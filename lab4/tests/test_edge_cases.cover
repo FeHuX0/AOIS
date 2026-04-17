@@ -1,0 +1,87 @@
+    1: import unittest
+       
+    1: from src.errors import InvalidKeyError, InvalidTableSizeError, KeyNotFoundError
+    1: from src.hash_entry import HashEntry
+    1: from src.hash_status import HashStatus
+    1: from src.hash_table import HashTable
+       
+       
+    2: class EdgeCasesTestCase(unittest.TestCase):
+    1:     def test_hash_table_rejects_invalid_size(self) -> None:
+    2:         with self.assertRaises(InvalidTableSizeError):
+    1:             HashTable(0)
+       
+    2:         with self.assertRaises(InvalidTableSizeError):
+    1:             HashTable(True)
+       
+    1:     def test_non_string_key_is_rejected(self) -> None:
+    1:         table = HashTable(11)
+    2:         with self.assertRaises(InvalidKeyError):
+    1:             table.insert(123, "значение")
+       
+    1:     def test_too_short_key_is_rejected(self) -> None:
+    1:         table = HashTable(11)
+    2:         with self.assertRaises(InvalidKeyError):
+    1:             table.insert("А", "значение")
+       
+    1:     def test_key_with_invalid_characters_is_rejected(self) -> None:
+    1:         table = HashTable(11)
+    2:         with self.assertRaises(InvalidKeyError):
+    1:             table.insert("AБ", "значение")
+       
+    1:     def test_update_missing_key_raises_error(self) -> None:
+    1:         table = HashTable(11)
+    2:         with self.assertRaises(KeyNotFoundError):
+    1:             table.update("АБ", "значение")
+       
+    1:     def test_delete_missing_key_raises_error(self) -> None:
+    1:         table = HashTable(11)
+    2:         with self.assertRaises(KeyNotFoundError):
+    1:             table.delete("АБ")
+       
+    1:     def test_deleted_slot_is_reused_when_no_empty_cells_left(self) -> None:
+    1:         table = HashTable(11)
+    1:         keys = ["АА", "АБ", "АВ", "АГ", "АД", "АЕ", "АЁ", "АЖ", "АЗ", "АИ", "АЙ"]
+       
+   12:         for number, key in enumerate(keys):
+   11:             table.insert(key, number)
+       
+    1:         table.delete("АБ")
+    1:         reused_index = table.insert("ББ", "новое значение")
+       
+    1:         self.assertEqual(reused_index, 1)
+    1:         self.assertEqual(table.search("ББ"), "новое значение")
+       
+    1:     def test_hash_entry_status_value_and_string_representation(self) -> None:
+    1:         entry = HashEntry()
+    1:         self.assertEqual(entry.status, HashStatus.EMPTY)
+    1:         self.assertIsNone(entry.key)
+    1:         self.assertIsNone(entry.value)
+    2:         self.assertEqual(
+    1:             str(entry),
+    1:             "ID=None, C=0, U=0, T=0, L=0, D=0, P0=None, Pi=None",
+               )
+       
+    1:         entry.occupy("АБ", "значение", collision=True)
+    1:         self.assertEqual(entry.status, HashStatus.OCCUPIED)
+    1:         self.assertEqual(entry.key, "АБ")
+    1:         self.assertEqual(entry.value, "значение")
+    1:         entry.value = "обновленное значение"
+    1:         self.assertEqual(entry.value, "обновленное значение")
+    2:         self.assertEqual(
+    1:             str(entry),
+    1:             "ID=АБ, C=1, U=1, T=1, L=0, D=0, P0=None, Pi=обновленное значение",
+               )
+       
+    1:         entry.mark_deleted()
+    1:         self.assertEqual(entry.status, HashStatus.DELETED)
+    1:         self.assertEqual(entry.u, 0)
+    1:         self.assertEqual(entry.d, 1)
+    2:         self.assertEqual(
+    1:             str(entry),
+    1:             "ID=АБ, C=1, U=0, T=0, L=0, D=1, P0=None, Pi=обновленное значение",
+               )
+       
+       
+    1: if __name__ == "__main__":
+>>>>>>     unittest.main()

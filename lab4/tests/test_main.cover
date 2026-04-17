@@ -1,0 +1,20 @@
+    1: import unittest
+    1: from unittest.mock import patch
+       
+    1: import main
+    1: from src.hash_table import HashTable
+       
+       
+    2: class MainModuleTestCase(unittest.TestCase):
+    2:     @patch("main.run_cli")
+    2:     def test_main_creates_default_table_and_starts_cli(self, run_cli_mock) -> None:
+    1:         main.main()
+       
+    1:         run_cli_mock.assert_called_once()
+    1:         table = run_cli_mock.call_args.args[0]
+    1:         self.assertIsInstance(table, HashTable)
+    1:         self.assertEqual(table.size, main.DEFAULT_TABLE_SIZE)
+       
+       
+    1: if __name__ == "__main__":
+>>>>>>     unittest.main()

@@ -1,7 +1,0 @@
-    1: from enum import Enum
-       
-       
-    2: class HashStatus(Enum):
-    1:     EMPTY = "EMPTY"
-    1:     OCCUPIED = "OCCUPIED"
-    1:     DELETED = "DELETED"
